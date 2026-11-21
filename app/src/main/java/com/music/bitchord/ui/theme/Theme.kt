@@ -64,13 +64,7 @@ private val LightColors = lightColorScheme(
  * Compose synthesises nothing, so a weight outside these falls back to the
  * nearest one listed.
  */
-val SFProDisplay = FontFamily(
-    Font(R.font.sf_pro_display_regular, FontWeight.W400),
-    Font(R.font.sf_pro_display_regular, FontWeight.W500),
-    Font(R.font.sf_pro_display_medium, FontWeight.W600),
-    Font(R.font.sf_pro_display_semibold, FontWeight.W700),
-    Font(R.font.sf_pro_display_bold, FontWeight.W800),
-)
+val SFProDisplay: FontFamily = FontFamily.Default
 
 /*
  * Letter spacing measured off Apple Music's own screens: the spacing the
@@ -98,13 +92,7 @@ private val BitChordTypography = Typography(
  * weight a cut lighter: each weight draws its own cut, Heavy included. Kept for
  * [AppFont.LEGACY].
  */
-val SFProDisplayLegacy = FontFamily(
-    Font(R.font.sf_pro_display_regular, FontWeight.W400),
-    Font(R.font.sf_pro_display_medium, FontWeight.W500),
-    Font(R.font.sf_pro_display_semibold, FontWeight.W600),
-    Font(R.font.sf_pro_display_bold, FontWeight.W700),
-    Font(R.font.sf_pro_display_heavy, FontWeight.W800),
-)
+val SFProDisplayLegacy: FontFamily = FontFamily.Default
 
 // Heavy, tight typography — the original scale [AppFont.LEGACY] restores.
 private val LegacyTypography = Typography(

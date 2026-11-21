@@ -7481,6 +7481,7 @@ class PlaybackService : MediaLibraryService() {
     }
 
     private fun observeScrobbling() {
+        return
         // Keep the manager alive while its timing settings change, so updating
         // a preference does not cancel the current track's scrobble timer.
         scope.launch {
@@ -7582,6 +7583,7 @@ class PlaybackService : MediaLibraryService() {
      * the socket every time the user typed a character into a button label.
      */
     private fun observeDiscord() {
+        return
         scope.launch {
             combine(
                 AppSettings.discordToken,
@@ -7618,7 +7620,7 @@ class PlaybackService : MediaLibraryService() {
                     discordRpc = null
 
                     if (token == null) return@collectLatest
-                    discordRpc = DiscordRPC(this@PlaybackService, token)
+                    discordRpc = DiscordRPC(this@PlaybackService, token ?: return@collectLatest)
                     // A presence that only appeared at the next track change
                     // would make turning the switch on look like it had done
                     // nothing for the length of a song.
@@ -7773,25 +7775,10 @@ class PlaybackService : MediaLibraryService() {
      * actually scrobbling — the settings are read at call time so the helper
      * stays a no-op whenever ListenBrainz is switched off.
      */
-    private fun submitListenBrainzFinished(song: Song, startMs: Long, durationMs: Long?) {
-        val lbEnabled = AppSettings.scrobblingAvailable && AppSettings.listenBrainzEnabled.value
-        val lbToken = AppSettings.listenBrainzToken.value
-        if (!lbEnabled || lbToken.isBlank()) return
-        val endMs = System.currentTimeMillis()
-        scope.launch {
-            ListenBrainzManager.submitFinished(lbToken, song, startMs, endMs, durationMs, AppSettings.listenBrainzPrimaryArtistOnly.value)
-        }
-    }
+    private fun submitListenBrainzFinished(song: Song, startMs: Long, durationMs: Long?) = Unit
 
     /** Sends a ListenBrainz "now playing" update for the current track. */
-    private fun submitListenBrainzPlayingNow(song: Song, positionMs: Long, durationMs: Long?) {
-        val lbEnabled = AppSettings.scrobblingAvailable && AppSettings.listenBrainzEnabled.value
-        val lbToken = AppSettings.listenBrainzToken.value
-        if (!lbEnabled || lbToken.isBlank()) return
-        scope.launch {
-            ListenBrainzManager.submitPlayingNow(lbToken, song, positionMs, durationMs, AppSettings.listenBrainzPrimaryArtistOnly.value)
-        }
-    }
+    private fun submitListenBrainzPlayingNow(song: Song, positionMs: Long, durationMs: Long?) = Unit
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? =
         mediaSession

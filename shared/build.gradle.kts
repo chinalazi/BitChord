@@ -27,8 +27,7 @@ kotlin {
         val jvmSharedMain by creating {
             dependsOn(commonMain.get())
             dependencies {
-                // Compile-only: the two applications supply the runtime artifact themselves.
-                compileOnly("com.microsoft.onnxruntime:onnxruntime:1.20.0")
+                // ONNX Runtime removed to reduce APK size.
                 // The network stack the lyrics providers and the YouTube Music
                 // client run on, at the phone's versions — both applications
                 // now call the same code, so they resolve the same libraries.

@@ -1214,7 +1214,7 @@ internal fun OutputCaption(
 }
 
 /** The three fields of a party the player draws — see [OutputPartyPill]. */
-private data class PartyBadge(
+internal data class PartyBadge(
     val inParty: Boolean,
     val members: Int,
     val hostFirstName: String?,
@@ -1258,7 +1258,7 @@ internal fun rememberControlsLocked(): Boolean {
  * of these three fields.
  */
 @Composable
-private fun rememberPartyBadge(): PartyBadge {
+internal fun rememberPartyBadge(): PartyBadge {
     val badges = remember {
         PlayerPlatform.host.party.map { it.badge() }.distinctUntilChanged()
     }

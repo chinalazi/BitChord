@@ -48,6 +48,7 @@ var (
 )
 
 func main() {
+	store.EnsureDefaultParty()
 	go startHeartbeatTicker()
 	go startPresenceSweeper()
 
@@ -57,6 +58,7 @@ func main() {
 	mux.HandleFunc("GET /{$}", handleRoot)
 	mux.HandleFunc("GET /healthz", handleHealthz)
 	mux.HandleFunc("GET /api/time", handleTime)
+	mux.HandleFunc("GET /api/parties/default", handleGetDefaultParty)
 	mux.HandleFunc("POST /api/parties", handleCreateParty)
 	mux.HandleFunc("POST /api/parties/{code}/join", handleJoinParty)
 	mux.HandleFunc("GET /api/parties/{code}", handleGetParty)
@@ -343,6 +345,13 @@ func handleLiveBadge(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(svg))
 }
 
+func handleGetDefaultParty(w http.ResponseWriter, r *http.Request) {
+	p := store.EnsureDefaultParty()
+	jsonResponse(w, http.StatusOK, map[string]interface{}{
+		"code": p.Code,
+	})
+}
+
 func handleCreateParty(w http.ResponseWriter, r *http.Request) {
 	if !createLimiter.Allow(clientIP(r)) {
 		jsonError(w, http.StatusTooManyRequests, "create_rate_limited", "You can create up to two parties per minute. Please try again shortly.")
@@ -357,28 +366,14 @@ func handleCreateParty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	maxMembers := 5
-	if req.MaxMembers != nil { maxMembers = *req.MaxMembers }
-	p, err := store.CreateWithLimits(config.MaxParties, maxMembers)
-	if err != nil {
-		if pe, ok := err.(*party.PartyError); ok {
-			jsonError(w, pe.Status, pe.Code, pe.Message)
-			return
-		}
-		jsonError(w, http.StatusInternalServerError, "server_error", "Failed to create party.")
-		return
-	}
-	// This must be present in the creation response. Waiting for the first
-	// WebSocket control can lose the setting before that socket is established.
+	p := store.EnsureDefaultParty()
+	p.Lock()
 	if req.AutoplayEnabled != nil {
 		p.Playback.AutoplayEnabled = *req.AutoplayEnabled
 	}
-
-	p.Lock()
 	m, err := p.Join(req.UserId, req.DeviceId, req.DisplayName, req.AvatarUrl)
 	if err != nil {
 		p.Unlock()
-		store.Drop(p.Code)
 		if pe, ok := err.(*party.PartyError); ok {
 			jsonError(w, pe.Status, pe.Code, pe.Message)
 			return
@@ -386,6 +381,7 @@ func handleCreateParty(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "server_error", err.Error())
 		return
 	}
+	p.SetHost(m.MemberId)
 	partyWire := p.ToWire()
 	youWire := m.ToWire()
 	token := m.Token

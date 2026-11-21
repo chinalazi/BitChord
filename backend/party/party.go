@@ -533,6 +533,7 @@ type Party struct {
 	// seconds. It travels with MaxMembers on the members frame instead, which
 	// is only sent when something about the membership actually changes.
 	HostOnlyControl bool
+	IsPermanent     bool
 	CreatedAtMs     int64
 	TouchedAtMs     int64
 	EmptySinceMs    *int64
@@ -564,6 +565,13 @@ func (p *Party) Unlock() { p.mu.Unlock() }
 
 func (p *Party) Touch() {
 	p.TouchedAtMs = clock.NowMs()
+}
+
+func (p *Party) SetHost(memberId string) {
+	for _, m := range p.Members {
+		m.IsHost = m.MemberId == memberId
+	}
+	p.Touch()
 }
 
 func (p *Party) Host() *Member {
@@ -753,6 +761,9 @@ func (p *Party) ExpiredMembers(now int64) []*Member {
 }
 
 func (p *Party) IsExpired(now int64) bool {
+	if p.IsPermanent {
+		return false
+	}
 	if now-p.CreatedAtMs > config.PartyMaxAgeMs {
 		return true
 	}
@@ -823,6 +834,18 @@ func (s *PartyStore) MemberCount() int {
 		p.mu.Unlock()
 	}
 	return total
+}
+
+func (s *PartyStore) EnsureDefaultParty() *Party {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if p, ok := s.parties[codes.DefaultPartyCode]; ok {
+		return p
+	}
+	p := NewPartyWithMaxMembers(codes.DefaultPartyCode, 10)
+	p.IsPermanent = true
+	s.parties[codes.DefaultPartyCode] = p
+	return p
 }
 
 func (s *PartyStore) Create() (*Party, error) {

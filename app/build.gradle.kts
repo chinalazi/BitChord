@@ -107,8 +107,8 @@ android {
         abi {
             isEnable = true
             reset()
-            include("armeabi-v7a", "arm64-v8a", "x86_64")
-            isUniversalApk = true
+            include("arm64-v8a")
+            isUniversalApk = false
         }
     }
 
@@ -116,13 +116,6 @@ android {
     // two cannot drift. See wearos/protocol/.../WearProtocol.kt.
     sourceSets {
         getByName("main") { java.srcDir("../wearos/protocol") }
-    }
-
-    externalNativeBuild {
-        cmake {
-            path = file("src/main/cpp/CMakeLists.txt")
-            version = "3.22.1"
-        }
     }
 
     // applicationId can only be overridden per flavor, not per build type, so a
@@ -410,41 +403,7 @@ dependencies {
     // Held at InnerTubeX's version; the same VM runs QuickJsExecutor's module sources.
     implementation("io.github.dokar3:quickjs-kt-android:1.0.14")
 
-    // ---- SMB file shares: pure-Java SMB2/3 client (listing + streaming) ----
-    implementation("com.hierynomus:smbj:0.15.0")
-
-    // ---- Automix: on-device beat/downbeat model (Beat This!, MIT-licensed) ----
-    // The full android artifact, not onnxruntime-mobile: mobile only loads .ort
-    // files, which would put an offline conversion step between the model and
-    // the app for a saving that does not matter in a self-distributed APK.
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.28.0")
-
-    // ---- Casting: Google Cast sender + the route discovery it sits on ----
-    // The framework and the router only. media3-cast is left out on purpose:
-    // its CastPlayer hands the receiver whatever URI a MediaItem carries, and
-    // ours are `bitchord://` addresses that only the service's resolver can
-    // turn into a real stream — see [com.music.bitchord.playback.cast.CastPlayback].
-    implementation("com.google.android.gms:play-services-cast-framework:22.2.0")
-    implementation("androidx.mediarouter:mediarouter:1.8.1")
-
-    // ---- The watch app (wearos/): Data Layer state out, commands in ----
-    // See com.music.bitchord.wear.WearBridge. Rides on the Play services base
-    // the Cast framework already brings, so it adds very little.
-    implementation("com.google.android.gms:play-services-wearable:20.0.1")
-    // Opens the watch app after an update, so its install prompt is on screen.
-    implementation("androidx.wear:wear-remote-interactions:1.1.0")
-
-    // ---- "BitChord for Wear OS": the first install onto a watch ----
-    // Without the Play Store only ADB can install on a watch, so this phone is
-    // the ADB client, over the watch's Wireless debugging — see WatchInstaller.
-    // GPL-3.0/Apache-2.0 dual-licensed. Its own BouncyCastle (jdk15to18) is the
-    // same classes as the jdk18on one SMBJ already brings, so it is excluded;
-    // bcpkix supplies the certificate the ADB client identifies itself with.
-    implementation("com.github.MuntashirAkon:libadb-android:3.1.1") {
-        exclude(group = "org.bouncycastle")
-    }
-    implementation("org.conscrypt:conscrypt-android:2.5.3")
-    implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
+    // Removed smbj, onnxruntime-android, cast, wearable, libadb, conscrypt, bcpkix to reduce APK size.
 
     testImplementation("junit:junit:4.13.2")
     // A real HTTP server for the addon tests. The addon protocol is entirely
@@ -533,7 +492,7 @@ abstract class BundleWearApk : DefaultTask() {
     }
 }
 
-if (providers.gradleProperty("bitchord.bundleWear").orNull != "false" && findProject(":wearos") != null) {
+if (false && providers.gradleProperty("bitchord.bundleWear").orNull != "false" && findProject(":wearos") != null) {
     androidComponents.onVariants { variant ->
         val flavor = variant.productFlavors.firstOrNull { it.first == "env" }?.second ?: return@onVariants
         val type = variant.buildType ?: return@onVariants

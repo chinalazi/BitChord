@@ -495,12 +495,22 @@ fun ListenTogetherScreen(
                 enabled = signedIn && ListenTogether.hasServer && !busy,
                 // The last attempt's message does not belong on the next one.
                 onCreate = {
+                    busy = true
                     failure = null
-                    sheet = PartySheet.Create
+                    scope.launch {
+                        failure = ListenTogether.createParty(nickname, maxMembers)
+                            .exceptionOrNull()?.message
+                        busy = false
+                    }
                 },
                 onJoin = {
+                    busy = true
                     failure = null
-                    sheet = PartySheet.JoinCode
+                    scope.launch {
+                        failure = ListenTogether.joinDefaultParty(nickname)
+                            .exceptionOrNull()?.message
+                        busy = false
+                    }
                 },
             )
         } else {

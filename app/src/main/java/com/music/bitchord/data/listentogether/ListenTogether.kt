@@ -858,6 +858,28 @@ object ListenTogether {
      * require target-first transactional semantics and recovery guarantees
      * that are intentionally not part of this API.
      */
+    suspend fun joinDefaultParty(nickname: String = nickname()): Result<String> = switchMutex.withLock {
+        val targetServer = resolveHttpBase(effectiveIdleServerBase())
+        runCatching {
+            if (targetServer.isBlank()) throw PartyException("no_server", "Set the party server address first.")
+            val defaultCode = runCatching {
+                val res = http.get("$targetServer/api/parties/default") {
+                    timeout { requestTimeoutMillis = 5_000 }
+                }
+                if (res.status.isSuccess()) {
+                    val obj = json.parseToJsonElement(res.bodyAsText()).jsonObject
+                    obj["code"]?.jsonPrimitive?.content?.takeIf { it.isNotBlank() } ?: DEFAULT_PARTY_CODE
+                } else {
+                    DEFAULT_PARTY_CODE
+                }
+            }.getOrDefault(DEFAULT_PARTY_CODE)
+            doJoinOnServer(targetServer, defaultCode, nickname)
+        }.onFailure { failure ->
+            Log.w(TAG, "could not enter default party: ${redact(failure.message)}")
+            _state.update { it.copy(error = failure.displayMessage()) }
+        }
+    }
+
     suspend fun joinParty(code: String, nickname: String = nickname()): Result<String> = switchMutex.withLock {
         val targetServer = resolveHttpBase(effectiveIdleServerBase())
         runCatching {
@@ -872,7 +894,7 @@ object ListenTogether {
         val who = identity(nickname) ?: throw PartyException("not_signed_in", "Sign in to listen together.")
         if (serverBase.isBlank()) throw PartyException("no_server", "Set the party server address first.")
         val cleaned = code.filter { it.isLetterOrDigit() }.uppercase()
-        if (cleaned.length != CODE_LENGTH) {
+        if (cleaned != DEFAULT_PARTY_CODE && cleaned.length != CODE_LENGTH) {
             throw PartyException("bad_code", "A party code is six letters or digits.")
         }
         refuseIfRecentlyKicked(cleaned)
@@ -1583,7 +1605,7 @@ object ListenTogether {
      */
     suspend fun previewParty(code: String, server: String? = null): Result<PartyPreview> {
         val cleaned = code.filter { it.isLetterOrDigit() }.uppercase()
-        if (cleaned.length != CODE_LENGTH) {
+        if (cleaned != DEFAULT_PARTY_CODE && cleaned.length != CODE_LENGTH) {
             return Result.failure(PartyException("bad_code", "A party code is six letters or digits."))
         }
         return runCatching {
@@ -1691,6 +1713,7 @@ object ListenTogether {
         .joinToString("") { "%02x".format(it) }
 
     const val CODE_LENGTH = 6
+    const val DEFAULT_PARTY_CODE = "8888888"
 
     private const val TAG = "ListenTogether"
     private const val PREFS = "bitchord_listen_together"

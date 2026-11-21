@@ -728,9 +728,9 @@ internal fun ellipsised(text: String, paint: Paint, width: Float): String {
  * share button.
  */
 internal class Fonts(context: Context) {
-    private val heavy = font(context, R.font.sf_pro_display_heavy) ?: Typeface.DEFAULT_BOLD
-    private val semibold = font(context, R.font.sf_pro_display_semibold) ?: Typeface.DEFAULT_BOLD
-    private val regular = font(context, R.font.sf_pro_display_regular) ?: Typeface.DEFAULT
+    private val heavy = Typeface.DEFAULT_BOLD
+    private val semibold = Typeface.DEFAULT_BOLD
+    private val regular = Typeface.DEFAULT
 
     fun heading(size: Float, color: Int) = paint(heavy, size, color)
 

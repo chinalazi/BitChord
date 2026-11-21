@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -3789,6 +3790,15 @@ fun NowPlayingScreen(
                                 )
                                 Spacer(Modifier.width(8.dp))
                             }
+                            val partyBadge = rememberPartyBadge()
+                            CircleGlyph(
+                                icon = Icons.Rounded.Person,
+                                contentDescription = stringResource(Res.string.listen_together_open),
+                                onClick = onListenTogether,
+                                active = partyBadge.inParty,
+                                haptic = Haptic.Tap,
+                            )
+                            Spacer(Modifier.width(8.dp))
                             // While the lyrics are up the menu glyph becomes the share
                             // entry: the same pick mode a long-press on a line opens,
                             // only on phones where a card can actually be made. While
