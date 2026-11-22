@@ -44,7 +44,7 @@ fun PartyServerEditor(hazeState: HazeState, onDismiss: () -> Unit) {
     // Seeded once, at the moment the card opens: this is a draft of the stored
     // address, and re-seeding it from the store while it is being typed into
     // would overwrite the typing the first time anything else touched it.
-    var input by remember { mutableStateOf(customServer) }
+    var input by remember { mutableStateOf(customServer.ifBlank { "http://" }) }
     // What the last Test or Save said, and whether it was good news. Null until
     // one of them has run — the card shows its description then.
     var status by remember { mutableStateOf<Pair<String, Boolean>?>(null) }

@@ -626,7 +626,8 @@ internal fun PlayerActionRow(
                     .offset { IntOffset((closeIn.toPx() * compactness.value).roundToInt(), 0) },
             ) {
                 BottomGlyph(
-                    icon = BitChordIcons.LyricsQuote,
+                    icon = null,
+                    label = "歌词",
                     contentDescription = stringResource(if (lyricsOpen) Res.string.close_lyrics else Res.string.open_lyrics),
                     // Lyrics and the queue are two things to show in one place, so
                     // opening either closes the other; lit to say which is up.
@@ -1361,7 +1362,7 @@ private fun BottomGlyph(
             Text(
                 text = label,
                 color = tint,
-                fontSize = 19.sp,
+                fontSize = if (label.length > 1) 13.sp else 19.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = glyphChrome,
             )

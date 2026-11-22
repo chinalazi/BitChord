@@ -2612,7 +2612,15 @@ private fun BitChordApp(
             // The service owns both the queue and the Shuffle state. Keeping
             // the toggle on that side prevents the UI from changing the icon
             // before its asynchronous reorder command has actually landed.
-            onToggleShuffle = { controller?.toggleShuffle() },
+            onToggleShuffle = {
+                val willEnable = !com.music.bitchord.playback.QueueShuffle.enabled.value
+                controller?.toggleShuffle()
+                Toast.makeText(
+                    context,
+                    if (willEnable) "随机播放：开启" else "随机播放：关闭",
+                    Toast.LENGTH_SHORT,
+                ).show()
+            },
             onCycleRepeat = {
                 controller?.let {
                     val next = when (it.repeatMode) {
@@ -2628,6 +2636,12 @@ private fun BitChordApp(
                     // this screen, is still around to put them back when the
                     // loop ends.
                     it.repeatMode = next
+                    val tip = when (next) {
+                        Player.REPEAT_MODE_ALL -> "列表循环"
+                        Player.REPEAT_MODE_ONE -> "单曲循环"
+                        else -> "关闭循环"
+                    }
+                    Toast.makeText(context, tip, Toast.LENGTH_SHORT).show()
                 }
             },
             onToggleAutoplay = {

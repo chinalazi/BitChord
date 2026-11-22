@@ -537,6 +537,7 @@ class PartySync(
 
         if (!target.isPlaying) {
             deferredPlayPending = false
+            if (exo.playbackParameters.speed != 1.0f) exo.setPlaybackSpeed(1.0f)
             if (exo.playWhenReady) exo.pause()
             // Held where the party paused it, so that everybody resumes from the
             // same place rather than from wherever their own playhead stopped.
@@ -628,8 +629,16 @@ class PartySync(
         }
         if (abs(drift) <= DRIFT_LIMIT_MS) {
             driftStrikes = 0
+            val currentSpeed = exo.playbackParameters.speed
+            if (abs(drift) > SPEED_NUDGE_THRESHOLD_MS) {
+                val targetSpeed = if (drift < 0) 1.04f else 0.96f
+                if (currentSpeed != targetSpeed) exo.setPlaybackSpeed(targetSpeed)
+            } else if (abs(drift) <= SPEED_NUDGE_STOP_MS && currentSpeed != 1.0f) {
+                exo.setPlaybackSpeed(1.0f)
+            }
             return
         }
+        if (exo.playbackParameters.speed != 1.0f) exo.setPlaybackSpeed(1.0f)
         // Seeking is not free, and on a slow device it is not cheap either: the
         // re-buffer it costs can be longer than the gap being closed, so the
         // correction arrives already as far behind as the error it was fixing,
@@ -913,6 +922,8 @@ class PartySync(
         loadingVideoId = null
         focusLost = false
         rejoining = false
+        val exo = player()
+        if (exo != null && exo.playbackParameters.speed != 1.0f) exo.setPlaybackSpeed(1.0f)
         val stashed = PartyPersonalQueueStash.load()
         if (stashed != null) {
             val exo = player() ?: return
@@ -1012,7 +1023,9 @@ class PartySync(
          * within about a second, and cheap: in-process field reads off the
          * ExoPlayer, no binder call and no allocation on the quiet path.
          */
-        const val TICK_MS = 700L
+        const val TICK_MS = 500L
+        const val SPEED_NUDGE_THRESHOLD_MS = 250L
+        const val SPEED_NUDGE_STOP_MS = 120L
 
         /**
          * How far out of step is worth an audible seek.

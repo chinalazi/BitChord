@@ -382,6 +382,7 @@ func handleCreateParty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.SetHost(m.MemberId)
+	p.HostOnlyControl = true
 	partyWire := p.ToWire()
 	youWire := m.ToWire()
 	token := m.Token
