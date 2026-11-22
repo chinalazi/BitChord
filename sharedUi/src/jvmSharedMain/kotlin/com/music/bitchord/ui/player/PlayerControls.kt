@@ -695,11 +695,7 @@ internal fun PlayerActionRow(
                         )
                     }
                 } else {
-                    OutputPartyPill(
-                        onOutput = onOpenOutput,
-                        onParty = onListenTogether,
-                        onOpenMembers = onOpenListenTogetherMembers,
-                    )
+                    Spacer(Modifier.height(BOTTOM_ACTION_SIZE))
                 }
             }
             Box(

@@ -35,6 +35,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.rounded.Cloud
 import androidx.compose.material.icons.rounded.CloudDone
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Lock
@@ -929,6 +930,36 @@ private fun InAParty(
         }
     }
 
+    val localSyncOffsetMs by ListenTogether.localSyncOffsetMs.collectAsStateWithLifecycle()
+
+    SettingsGroup(header = "同步校准") {
+        SettingsRow(
+            icon = androidx.compose.material.icons.Icons.Rounded.Refresh,
+            title = "立即重新对齐",
+            subtitle = "重新校准服务器时钟并同步当前进度",
+            onClick = { ListenTogether.resync() },
+        )
+        RowDivider()
+        SliderRow(
+            icon = SfIcons.Tune,
+            title = "音频延迟微调",
+            subtitle = "补偿设备外放/蓝牙输出延迟（负值延后，正值提前）",
+            value = "${if (localSyncOffsetMs > 0) "+" else ""}${localSyncOffsetMs}ms",
+            sliderValue = localSyncOffsetMs.toFloat(),
+            onSliderValue = { ListenTogether.setLocalSyncOffsetMs((kotlin.math.round(it / 25f) * 25f).toLong()) },
+            valueRange = -500f..500f,
+            steps = 39,
+        )
+        if (localSyncOffsetMs != 0L) {
+            RowDivider()
+            SettingsRow(
+                icon = androidx.compose.material.icons.Icons.Rounded.Refresh,
+                title = "重置延迟微调为 0ms",
+                onClick = { ListenTogether.setLocalSyncOffsetMs(0L) },
+            )
+        }
+    }
+
     SettingsGroup {
         SettingsRow(
             icon = SfIcons.Logout,
@@ -1080,6 +1111,22 @@ private fun MemberRow(member: PartyMember, isYou: Boolean, canKick: Boolean = fa
                     text = stringResource(R.string.listen_together_away),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else if (member.driftMs != null) {
+                val drift = member.driftMs!!
+                val syncLabel = when {
+                    kotlin.math.abs(drift) <= 150 -> "已同步"
+                    drift > 0 -> "快 ${drift}ms"
+                    else -> "慢 ${-drift}ms"
+                }
+                Text(
+                    text = syncLabel,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (kotlin.math.abs(drift) <= 250) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                 )
             }
         }

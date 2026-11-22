@@ -24,6 +24,7 @@ const (
 	FrameSync      = "sync"
 	FrameSyncQueue = "syncQueue"
 	FrameReport    = "report"
+	FrameReady     = "ready"
 )
 
 // Control actions

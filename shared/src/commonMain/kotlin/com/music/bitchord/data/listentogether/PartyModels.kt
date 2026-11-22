@@ -46,6 +46,7 @@ data class PartyMember(
     val connected: Boolean = false,
     val joinedAtMs: Long = 0,
     val lastSeenMs: Long = 0,
+    val driftMs: Long? = null,
 )
 
 /**

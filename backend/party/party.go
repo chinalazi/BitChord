@@ -504,10 +504,12 @@ type Member struct {
 	ControlBudgetAtMs  int64   `json:"-"`
 	FrameBudget        float64 `json:"-"`
 	FrameBudgetAtMs    int64   `json:"-"`
+	ReportedDriftMs    *int64  `json:"-"`
+	ReadySeq           int     `json:"-"`
 }
 
 func (m *Member) ToWire() map[string]interface{} {
-	return map[string]interface{}{
+	res := map[string]interface{}{
 		"memberId":    m.MemberId,
 		"userId":      m.UserId,
 		"displayName": m.DisplayName,
@@ -517,6 +519,10 @@ func (m *Member) ToWire() map[string]interface{} {
 		"joinedAtMs":  m.JoinedAtMs,
 		"lastSeenMs":  m.LastSeenMs,
 	}
+	if m.ReportedDriftMs != nil {
+		res["driftMs"] = *m.ReportedDriftMs
+	}
+	return res
 }
 
 // Party holds members and playback state for a single room code.
@@ -534,6 +540,8 @@ type Party struct {
 	// is only sent when something about the membership actually changes.
 	HostOnlyControl bool
 	IsPermanent     bool
+	WaitingReadySeq int
+	ReadyDeadlineMs int64
 	CreatedAtMs     int64
 	TouchedAtMs     int64
 	EmptySinceMs    *int64
@@ -572,6 +580,45 @@ func (p *Party) SetHost(memberId string) {
 		m.IsHost = m.MemberId == memberId
 	}
 	p.Touch()
+}
+
+func (p *Party) ConnectedCount() int {
+	count := 0
+	for _, m := range p.Members {
+		if m.Connected {
+			count++
+		}
+	}
+	return count
+}
+
+func (p *Party) StartReadyBarrier(seq int, timeoutMs int64) {
+	p.WaitingReadySeq = seq
+	p.ReadyDeadlineMs = clock.NowMs() + timeoutMs
+	for _, m := range p.Members {
+		m.ReadySeq = 0
+	}
+}
+
+func (p *Party) ClearReadyBarrier() {
+	p.WaitingReadySeq = 0
+	p.ReadyDeadlineMs = 0
+}
+
+func (p *Party) MarkReady(memberId string, seq int) bool {
+	m := p.Members[memberId]
+	if m != nil && seq > m.ReadySeq {
+		m.ReadySeq = seq
+	}
+	if p.WaitingReadySeq == 0 || seq < p.WaitingReadySeq {
+		return false
+	}
+	for _, mem := range p.Members {
+		if mem.Connected && mem.ReadySeq < p.WaitingReadySeq {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Party) Host() *Member {

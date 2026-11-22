@@ -193,18 +193,4 @@ private val SETTLE_MS = longArrayOf(350L, 1_200L, 2_500L)
  * is the app's own settings page in Android.
  */
 @Composable
-internal fun rememberAndroidOutputPicker(onOpen: () -> Unit): () -> Unit {
-    val context = LocalContext.current
-    val ask = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { granted -> if (granted) onOpen() }
-    return {
-        if (bluetoothNamesAllowed(context)) onOpen() else ask.launch(BLUETOOTH_CONNECT)
-    }
-}
-
-private fun bluetoothNamesAllowed(context: Context): Boolean =
-    Build.VERSION.SDK_INT < 31 ||
-        ContextCompat.checkSelfPermission(context, BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
-
-private const val BLUETOOTH_CONNECT = "android.permission.BLUETOOTH_CONNECT"
+internal fun rememberAndroidOutputPicker(onOpen: () -> Unit): () -> Unit = onOpen

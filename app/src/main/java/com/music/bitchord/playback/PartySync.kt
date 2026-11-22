@@ -136,6 +136,7 @@ class PartySync(
      * limit, so never corrected, and permanent.
      */
     private var alignedSeq = -1L
+    private var readySentSeq = -1L
 
     /**
      * A resume this device has accepted but not yet performed.
@@ -521,6 +522,10 @@ class PartySync(
         }
         loadingVideoId = null
         reconcileQueue(party, exo)
+        if (exo.playbackState == Player.STATE_READY && target.seq != readySentSeq) {
+            readySentSeq = target.seq
+            ListenTogether.sendReady(target.seq)
+        }
 
         // Muted by its own listener while the party plays on. Everything above
         // this line still applies — the track the party moved to is loaded, the
@@ -630,8 +635,11 @@ class PartySync(
         if (abs(drift) <= DRIFT_LIMIT_MS) {
             driftStrikes = 0
             val currentSpeed = exo.playbackParameters.speed
-            if (abs(drift) > SPEED_NUDGE_THRESHOLD_MS) {
-                val targetSpeed = if (drift < 0) 1.04f else 0.96f
+            if (abs(drift) > 600L) {
+                val targetSpeed = if (drift < 0) 1.05f else 0.95f
+                if (currentSpeed != targetSpeed) exo.setPlaybackSpeed(targetSpeed)
+            } else if (abs(drift) > SPEED_NUDGE_THRESHOLD_MS) {
+                val targetSpeed = if (drift < 0) 1.02f else 0.98f
                 if (currentSpeed != targetSpeed) exo.setPlaybackSpeed(targetSpeed)
             } else if (abs(drift) <= SPEED_NUDGE_STOP_MS && currentSpeed != 1.0f) {
                 exo.setPlaybackSpeed(1.0f)

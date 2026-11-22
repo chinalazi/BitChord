@@ -21,30 +21,6 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
 
-    <!--
-      Asked for only when the output picker is first opened, and only on API 31+
-      where it exists. Without it a paired headset is listed by the audio
-      framework under a generic name rather than its own, which turns a list of
-      places to send the music into a list of things called "Bluetooth".
-      Everything else in the app works without it.
-    -->
-    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <!--
-      BLUETOOTH_CONNECT's predecessor, granted at install: what reads a paired
-      device's class below API 31, so the player can draw a speaker for a
-      speaker. See AudioRouting.formOf.
-    -->
-    <uses-permission
-        android:name="android.permission.BLUETOOTH"
-        android:maxSdkVersion="30" />
-
-    <!--
-      In-app updates: handing a downloaded APK to the system installer. The
-      per-app "install unknown apps" switch is still the user's to flip; this
-      only lets the request reach the installer.
-    -->
-    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
-
     <!-- Reading local audio files across the device -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission

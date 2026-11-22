@@ -359,6 +359,17 @@ object ListenTogether {
         return ServerUrlValidationResult.Valid("${scheme.lowercase()}://$canonicalHost$portSuffix$canonicalPath")
     }
 
+    private val _localSyncOffsetMs = MutableStateFlow(0L)
+    val localSyncOffsetMs: StateFlow<Long> = _localSyncOffsetMs.asStateFlow()
+
+    fun setLocalSyncOffsetMs(offsetMs: Long) {
+        val clamped = offsetMs.coerceIn(-500L, 500L)
+        _localSyncOffsetMs.value = clamped
+        if (::prefs.isInitialized) {
+            prefs.edit().putLong(KEY_LOCAL_SYNC_OFFSET, clamped).apply()
+        }
+    }
+
     private val _customServer = MutableStateFlow("")
     val customServerUrl: StateFlow<String> = _customServer.asStateFlow()
 
@@ -661,6 +672,7 @@ object ListenTogether {
 
     fun init(context: Context) {
         prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        _localSyncOffsetMs.value = prefs.getLong(KEY_LOCAL_SYNC_OFFSET, 0L).coerceIn(-500L, 500L)
         val rawSaved = prefs.getString(KEY_SERVER, null)?.trim().orEmpty()
         val normalizedSaved = when (val res = parseAndNormalizeServerUrl(rawSaved)) {
             is ServerUrlValidationResult.Valid -> res.normalizedUrl
@@ -1141,6 +1153,29 @@ object ListenTogether {
     fun setHostOnlyControl(enabled: Boolean) =
         control("setHostOnlyControl") { put("enabled", enabled) }
 
+    fun sendReady(seq: Long) {
+        val ws = session ?: return
+        val frame = buildJsonObject {
+            put("type", "ready")
+            put("seq", seq)
+        }
+        scope.launch { runCatching { ws.send(Frame.Text(frame.toString())) } }
+    }
+
+    fun resync() {
+        val ws = session ?: return
+        clock.reset()
+        _state.update { it.copy(clockSynced = false) }
+        scope.launch {
+            repeat(4) {
+                runCatching { ws.ping() }
+                delay(180)
+            }
+            val syncFrame = buildJsonObject { put("type", "sync") }
+            runCatching { ws.send(Frame.Text(syncFrame.toString())) }
+        }
+    }
+
     private fun control(action: String, body: kotlinx.serialization.json.JsonObjectBuilder.() -> Unit) {
         val frame = buildJsonObject {
             put("type", "control")
@@ -1199,7 +1234,7 @@ object ListenTogether {
         if (!playback.isPlaying) return playback.positionMs
         val serverNow = clock.serverNowMs() ?: return playback.effectivePositionMs
         val elapsed = (serverNow - playback.anchorMs).coerceAtLeast(0)
-        val position = playback.positionMs + elapsed
+        val position = (playback.positionMs + elapsed + _localSyncOffsetMs.value).coerceAtLeast(0)
         val duration = track.durationMs
         return if (duration != null) minOf(position, duration) else position
     }
@@ -1730,6 +1765,7 @@ object ListenTogether {
     private const val KEY_DEVICE = "device_id"
     private const val KEY_NICKNAME = "party_nickname"
     private const val KEY_KICKED = "party_kicked_until"
+    private const val KEY_LOCAL_SYNC_OFFSET = "local_sync_offset_ms"
 
     /** How long a removal keeps this device out of that party. */
     private const val KICK_BLOCK_MS = 24L * 60 * 60 * 1000

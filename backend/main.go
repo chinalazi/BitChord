@@ -50,6 +50,7 @@ var (
 func main() {
 	store.EnsureDefaultParty()
 	go startHeartbeatTicker()
+	go startReadyBarrierSweeper()
 	go startPresenceSweeper()
 
 	mux := http.NewServeMux()
@@ -963,8 +964,21 @@ func handleSocketFrame(p *party.Party, member *party.Member, sc *hub.SafeConn, f
 		// Playhead position report from client for monitoring
 		if posNum, ok := frame["positionMs"].(float64); ok && p.Playback.IsPlaying {
 			drift := int64(posNum) - p.Playback.PositionAt(clock.NowMs())
+			member.ReportedDriftMs = &drift
 			if drift > 1500 || drift < -1500 {
 				log.Printf("party %s: %s drifted %dms", p.Code, member.DisplayName, drift)
+			}
+		}
+
+	case protocol.FrameReady:
+		if seqNum, ok := frame["seq"].(float64); ok {
+			if p.MarkReady(member.MemberId, int(seqNum)) {
+				p.ClearReadyBarrier()
+				p.Playback.Play(nil, nil)
+				sf := stateFrame(p)
+				p.Unlock()
+				hubInst.Broadcast(p.Code, sf, "")
+				return
 			}
 		}
 
@@ -1021,10 +1035,12 @@ func applyControl(p *party.Party, member *party.Member, action string, frame map
 
 	switch action {
 	case protocol.ActionPlay:
+		p.ClearReadyBarrier()
 		p.Playback.Play(&member.MemberId, posPtr)
 		return true, "", ""
 
 	case protocol.ActionPause:
+		p.ClearReadyBarrier()
 		p.Playback.Pause(&member.MemberId, posPtr)
 		return true, "", ""
 
@@ -1054,7 +1070,13 @@ func applyControl(p *party.Party, member *party.Member, action string, frame map
 			qi := int(qIndex)
 			qIndexPtr = &qi
 		}
-		p.Playback.SetTrack(&member.MemberId, t, pos, isPlaying, qIndexPtr, &member.DisplayName)
+		if isPlaying && p.ConnectedCount() >= 2 {
+			p.Playback.SetTrack(&member.MemberId, t, pos, false, qIndexPtr, &member.DisplayName)
+			p.StartReadyBarrier(p.Playback.Seq, 2500)
+		} else {
+			p.ClearReadyBarrier()
+			p.Playback.SetTrack(&member.MemberId, t, pos, isPlaying, qIndexPtr, &member.DisplayName)
+		}
 		return true, "", ""
 
 	case protocol.ActionSetQueue:
@@ -1142,11 +1164,19 @@ func applyControl(p *party.Party, member *party.Member, action string, frame map
 		if !p.Playback.Step(&member.MemberId, 1, &member.DisplayName) {
 			return false, "end_of_queue", "Already at the end of the queue."
 		}
+		if p.Playback.IsPlaying && p.ConnectedCount() >= 2 {
+			p.Playback.IsPlaying = false
+			p.StartReadyBarrier(p.Playback.Seq, 2500)
+		}
 		return true, "", ""
 
 	case protocol.ActionPrevious:
 		if !p.Playback.Step(&member.MemberId, -1, &member.DisplayName) {
 			return false, "start_of_queue", "Already at the beginning of the queue."
+		}
+		if p.Playback.IsPlaying && p.ConnectedCount() >= 2 {
+			p.Playback.IsPlaying = false
+			p.StartReadyBarrier(p.Playback.Seq, 2500)
 		}
 		return true, "", ""
 
@@ -1274,6 +1304,27 @@ func startPresenceSweeper() {
 	}
 }
 
+func startReadyBarrierSweeper() {
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		now := clock.NowMs()
+		for _, p := range store.All() {
+			p.Lock()
+			if p.WaitingReadySeq > 0 && now >= p.ReadyDeadlineMs {
+				p.ClearReadyBarrier()
+				p.Playback.Play(nil, nil)
+				sf := stateFrame(p)
+				p.Unlock()
+				hubInst.Broadcast(p.Code, sf, "")
+				continue
+			}
+			p.Unlock()
+		}
+	}
+}
+
 func startHeartbeatTicker() {
 	interval := time.Duration(config.StateHeartbeatMs) * time.Millisecond
 	if interval < 1*time.Second {
@@ -1287,9 +1338,24 @@ func startHeartbeatTicker() {
 		for _, p := range store.All() {
 			if len(hubInst.MembersOnline(p.Code)) > 0 {
 				p.Lock()
+				var qf map[string]interface{}
+				if p.Playback.IsPlaying && p.Playback.Track != nil && p.Playback.Track.DurationMs != nil && *p.Playback.Track.DurationMs > 0 {
+					if p.Playback.PositionAt(now) >= *p.Playback.Track.DurationMs+3000 {
+						if p.Playback.Step(nil, 1, nil) {
+							qf = queueFrame(p)
+						} else {
+							p.Playback.Pause(nil, p.Playback.Track.DurationMs)
+						}
+					}
+				}
 				sf := stateFrame(p)
+				mf := membersFrame(p)
 				p.Unlock()
+				if qf != nil {
+					hubInst.Broadcast(p.Code, qf, "")
+				}
 				hubInst.Broadcast(p.Code, sf, "")
+				hubInst.Broadcast(p.Code, mf, "")
 			}
 		}
 
