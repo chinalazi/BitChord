@@ -976,7 +976,6 @@ func handleSocketFrame(p *party.Party, member *party.Member, sc *hub.SafeConn, f
 				p.ClearReadyBarrier()
 				p.Playback.Play(nil, nil)
 				sf := stateFrame(p)
-				p.Unlock()
 				hubInst.Broadcast(p.Code, sf, "")
 				return
 			}
